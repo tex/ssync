@@ -1,0 +1,6 @@
+{application, ssync, [
+    {description,  "sync for rebarized projects"},
+    {vsn,          "1"},
+    {applications, [kernel, stdlib]},
+    {registered, []}
+]}.
