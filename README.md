@@ -27,3 +27,8 @@ run `ssync:start().`.
 If you are running on Linux install notify-send (Fedora: `libnotify` package,
 Ubuntu: `libnotify-bin` package)
 
+## Last notes
+
+I am not responsible for any bad that might happen to you or to your computer
+when using this application.
+
