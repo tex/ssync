@@ -19,9 +19,11 @@ start() ->
         end,
         [{"src", fun do_compile/1},
          {"c_src", fun do_compile/1},
+         {"include", fun do_compile/1},
          {"ebin", fun do_reload/1},
          {"deps/*/src", fun do_compile/1},
          {"deps/*/c_src", fun do_compile/1},
+         {"deps/*/include", fun do_compile/1},
          {"deps/*/ebin", fun do_reload/1} ] ).
 
 watch_r(Path, Callback) ->
@@ -60,7 +62,7 @@ do_compile({File, dir, delete, _Cookie, Name} = _Info) ->
 do_compile({File, file, close_write, _Cookie, Name} = _Info) ->
     Ext = string:to_lower(filename:extension(Name)),
     case lists:any(fun(X) -> X == Ext end,
-                   [".erl", ".c", ".cpp"] ) of
+                   [".erl", ".hrl", ".c", ".cpp"] ) of
         true ->
             rebar_compile(File, Name);
         false ->
