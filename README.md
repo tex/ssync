@@ -13,7 +13,11 @@ reloads the module.
 
 ## How can I use Ssync?
 
-The recommended approach is to put ssync in your rebar.config deps.
+The recommended approach is to put ssync in your rebar.config deps:
+
+{deps, [
+    {ssync, ".*", {git, "git://github.com/tex/ssync.git", "HEAD"}}
+]}.
 
 Then, go in the Erlang console of an application you are developing,
 run `ssync:start().`.
