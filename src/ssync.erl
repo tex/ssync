@@ -2,13 +2,53 @@
 %% Released under the MIT License.
 
 -module(ssync).
+-behaviour(gen_server).
+-define(SERVER, ?MODULE).
+
+-define(log(T),
+        error_logger:info_report(
+          [process_info(self(),current_function),{line,?LINE},T])).
+
+%% ------------------------------------------------------------------
+%% API Function Exports
+%% ------------------------------------------------------------------
+
+-export([start_link/0]).
+
 -export([start/0]).
--export([watch_r/2, dirs_r/1, dirs/1]).
+
+%% ------------------------------------------------------------------
+%% gen_server Function Exports
+%% ------------------------------------------------------------------
+
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+         terminate/2, code_change/3]).
 
 start() ->
     application:start(ets_manager),
     application:start(erlinotify),
+    application:start(ssync).
 
+%% ------------------------------------------------------------------
+%% API Function Definitions
+%% ------------------------------------------------------------------
+
+start_link() ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+%% ------------------------------------------------------------------
+%% gen_server Function Definitions
+%% ------------------------------------------------------------------
+
+%%----------------------------------------------------------------------
+%% Func: init/1
+%% Returns: {ok, State} |
+%%          {ok, State, Timeout} |
+%%          ignore |
+%%          {stop, Reason}
+%%----------------------------------------------------------------------
+
+init(_Args) ->
     lists:foreach(
         fun({Path, Fun}) ->
                 lists:foreach(
@@ -24,7 +64,57 @@ start() ->
          {"deps/*/src", fun do_compile/1},
          {"deps/*/c_src", fun do_compile/1},
          {"deps/*/include", fun do_compile/1},
-         {"deps/*/ebin", fun do_reload/1} ] ).
+         {"deps/*/ebin", fun do_reload/1} ] ),
+    {ok, []}.
+
+%%----------------------------------------------------------------------
+%% Func: handle_call/3
+%% Returns: {reply, Reply, State} |
+%%          {reply, Reply, State, Timeout} |
+%%          {noreply, State} |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, Reply, State} | (terminate/2 is called)
+%%          {stop, Reason, State} (terminate/2 is called)
+%%----------------------------------------------------------------------
+handle_call(_Request, _From, State) ->
+    {reply, ok, State}.
+
+%%----------------------------------------------------------------------
+%% Func: handle_cast/2
+%% Returns: {noreply, State} |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State} (terminate/2 is called)
+%%----------------------------------------------------------------------
+handle_cast(stop, State) ->
+  {stop, normal, State};
+handle_cast(Msg, State) ->
+  ?log({unknown_message, Msg}),
+  {noreply, State}.
+
+%%----------------------------------------------------------------------
+%% Func: handle_info/2
+%% Returns: {noreply, State} |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State} (terminate/2 is called)
+%%----------------------------------------------------------------------
+handle_info(Info, State) ->
+  ?log({unknown_message, Info}),
+  {noreply, State}.
+
+%%----------------------------------------------------------------------
+%% Func: terminate/2
+%% Purpose: Shutdown the server
+%% Returns: any (ignored by gen_server)
+%%----------------------------------------------------------------------
+terminate(_Reason, State) ->
+    {close, State}.
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+%% ------------------------------------------------------------------
+%% Internal Function Definitions
+%% ------------------------------------------------------------------
 
 watch_r(Path, Callback) ->
     lists:foreach(fun(X) -> erlinotify:watch(X, Callback) end,

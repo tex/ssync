@@ -1,6 +1,7 @@
 {application, ssync, [
-    {description,  "sync for rebarized projects"},
-    {vsn,          "1"},
-    {applications, [kernel, stdlib]},
+    {description,  "Sync for rebarized projects"},
+    {vsn,          git},
+    {mod,          {ssync_app, []}},
+    {applications, [kernel, stdlib, erlinotify]},
     {registered, []}
 ]}.
