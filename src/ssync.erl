@@ -136,15 +136,15 @@ dirs(Path) ->
                  filelib:wildcard(filename:join(Path, "*")) ).
 
 rebar_compile(_File, _Name) ->
-    notify:notify("ssync: build started", ""),
+    notify:notify("ssync: build started", []),
     cmd:cmd("rebar", ["compile"], fun parse_output/2),
-    notify:notify("ssync: build finished", "").
+    notify:notify("ssync: build finished", []).
 
 print_project(_, []) ->
     ok;
 
 print_project(Project, Msgs) ->
-    notify:notify(io_lib:format("ssync: build (~s)", [Project]), string:join(Msgs, "\n")).
+    notify:notify(io_lib:format("ssync: build (~s)", [Project]), Msgs).
 
 parse_output(eof, {Project, Msgs} = _Acc) ->
     print_project(Project, Msgs);
