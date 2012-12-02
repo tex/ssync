@@ -3,5 +3,8 @@
     {vsn,          git},
     {mod,          {ssync_app, []}},
     {applications, [kernel, stdlib, erlinotify]},
-    {registered, []}
+    {registered, []},
+    {env, [
+        {output, ['notify-send', console]}
+    ]}
 ]}.
