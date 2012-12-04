@@ -223,6 +223,9 @@ do_reload({File, dir, delete, _Cookie, Name} = _Info) ->
     FN = filename:join(File, Name),
     erlinotify:unwatch(FN);
 
+do_reload({_File, file, move_to, _Cookie, Name} = _Info) ->
+    reload(Name);
+
 do_reload({_File, file, close_write, _Cookie, Name} = _Info) ->
     reload(Name);
 
