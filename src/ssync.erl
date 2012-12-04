@@ -13,7 +13,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/0]).
+-export([start_link/0, rebar/1, reload/1]).
 
 -export([start/0]).
 
@@ -35,6 +35,15 @@ start() ->
 
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+rebar(compile) ->
+    gen_server:cast(?MODULE, {compile});
+
+rebar('get-deps') ->
+    gen_server:cast(?MODULE, {'get-deps'}).
+
+reload(ModuleName) ->
+    gen_server:cast(?MODULE, {reload, ModuleName}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -87,6 +96,26 @@ handle_call(_Request, _From, State) ->
 %%----------------------------------------------------------------------
 handle_cast(stop, State) ->
   {stop, normal, State};
+handle_cast({compile}, State) ->
+    notify:notify("ssync: build started", []),
+    cmd:cmd("rebar", ["compile"], fun parse_output/2),
+    notify:notify("ssync: build finished", []),
+    {noreply, State};
+handle_cast({'get-deps'}, State) ->
+    notify:notify("ssync: get-deps started", []),
+    cmd:cmd("rebar", ["get-deps"], fun parse_output/2),
+    notify:notify("ssync: get-deps finished", []),
+    {noreply, State};
+handle_cast({reload, ModuleName}, State) ->
+    Ext = string:to_lower(filename:extension(ModuleName)),
+    case Ext of
+        ".beam" ->
+            Module = list_to_atom(filename:rootname(ModuleName)),
+            code:purge(Module),
+            {module, Module} = code:load_file(Module);
+        _ -> ok
+    end,
+    {noreply, State};
 handle_cast(Msg, State) ->
   ?log({unknown_message, Msg}),
   {noreply, State}.
@@ -135,11 +164,6 @@ dirs(Path) ->
     lists:filter(fun(X) -> filelib:is_dir(X) end,
                  filelib:wildcard(filename:join(Path, "*")) ).
 
-rebar_compile(_File, _Name) ->
-    notify:notify("ssync: build started", []),
-    cmd:cmd("rebar", ["compile"], fun parse_output/2),
-    notify:notify("ssync: build finished", []).
-
 print_project(_, []) ->
     ok;
 
@@ -176,14 +200,14 @@ do_compile({File, dir, delete, _Cookie, Name} = _Info) ->
     FN = filename:join(File, Name),
     erlinotify:unwatch(FN);
 
-do_compile({File, file, close_write, _Cookie, Name} = _Info) ->
+do_compile({_File, file, close_write, _Cookie, Name} = _Info) ->
     Ext = string:to_lower(filename:extension(Name)),
     case lists:any(fun(X) -> X == Ext end,
                    [".erl", ".hrl",
                     ".c", ".cpp", ".cc",
                     ".h", ".hpp", ".hh" ] ) of
         true ->
-            rebar_compile(File, Name);
+            rebar(compile);
         false ->
             ok
     end;
@@ -200,9 +224,7 @@ do_reload({File, dir, delete, _Cookie, Name} = _Info) ->
     erlinotify:unwatch(FN);
 
 do_reload({_File, file, close_write, _Cookie, Name} = _Info) ->
-    M = list_to_atom(filename:rootname(Name)),
-    code:purge(M),
-    {module, M} = code:load_file(M);
+    reload(Name);
 
 do_reload({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.
