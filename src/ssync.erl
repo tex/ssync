@@ -17,6 +17,8 @@
 
 -export([start/0]).
 
+-export([do_compile/1, do_reload/1]).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
@@ -49,22 +51,7 @@ start_link() ->
 %%----------------------------------------------------------------------
 
 init(_Args) ->
-    lists:foreach(
-        fun({Path, Fun}) ->
-                lists:foreach(
-                    fun(ExpandedPath) ->
-                            watch_r(ExpandedPath, Fun)
-                    end,
-                    filelib:wildcard(Path) )
-        end,
-        [{"src", fun do_compile/1},
-         {"c_src", fun do_compile/1},
-         {"include", fun do_compile/1},
-         {"ebin", fun do_reload/1},
-         {"deps/*/src", fun do_compile/1},
-         {"deps/*/c_src", fun do_compile/1},
-         {"deps/*/include", fun do_compile/1},
-         {"deps/*/ebin", fun do_reload/1} ] ),
+    ssync(),
     {ok, []}.
 
 %%----------------------------------------------------------------------
@@ -116,22 +103,46 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-watch_r(Path, Callback) ->
-    lists:foreach(fun(X) -> erlinotify:watch(X, Callback) end,
-                  dirs_r(Path) ).
+ssync() ->
+    {ok, Dirs} = application:get_env(dirs),
+    {ok, SubDirs} = application:get_env(sub_dirs),
+    [watch(Dir, SubDir, Fun) || Dir <- Dirs, {SubDir, Fun} <- SubDirs],
+    ok.
 
-dirs_r(Path) ->
-    lists:map(fun(X) -> element(2, X) end, dirs_rt(Path)).
+watch(".", SubDir, Fun) ->
+    watch([SubDir], Fun);
 
-dirs_rt([]) -> [];
+watch(Dir, SubDir, Fun) ->
+    watch(filelib:wildcard(filename:join([Dir, "*", SubDir])), Fun).
 
-dirs_rt(Path) ->
+watch(Paths, Callback) ->
+    lists:foreach(
+        fun(Path) ->
+                lists:foreach(
+                    fun(X) ->
+                            case filelib:is_dir(X) of
+                                true ->
+                                    erlinotify:watch(X, Callback);
+                                _ ->
+                                    ok
+                            end
+                    end, dirs_recursive(Path) )
+        end, Paths ).
+
+dirs_recursive(Path) ->
+    lists:map(fun(TaggedDir) -> element(2, TaggedDir) end,
+              tagged_dirs_recursive(Path) ).
+
+tagged_dirs_recursive([]) ->
+    [];
+
+tagged_dirs_recursive(Path) ->
     lists:flatten([
             {directory, Path},
-            lists:map(fun(X) -> dirs_rt(X) end,
-                      dirs(Path) ) ]).
+            lists:map(fun(X) -> tagged_dirs_recursive(X) end,
+                      get_dirs(Path) ) ]).
 
-dirs(Path) ->
+get_dirs(Path) ->
     lists:filter(fun(X) -> filelib:is_dir(X) end,
                  filelib:wildcard(filename:join(Path, "*")) ).
 
@@ -178,10 +189,8 @@ do_compile({File, dir, delete, _Cookie, Name} = _Info) ->
 
 do_compile({File, file, close_write, _Cookie, Name} = _Info) ->
     Ext = string:to_lower(filename:extension(Name)),
-    case lists:any(fun(X) -> X == Ext end,
-                   [".erl", ".hrl",
-                    ".c", ".cpp", ".cc",
-                    ".h", ".hpp", ".hh" ] ) of
+    {ok, Exts} = application:get_env(ssync, extension),
+    case lists:any(fun(X) -> X == Ext end, Exts) of
         true ->
             rebar_compile(File, Name);
         false ->

@@ -5,6 +5,14 @@
     {applications, [kernel, stdlib, erlinotify]},
     {registered, []},
     {env, [
-        {output, ['notify-send', console]}
+        {output, ['notify-send', console]},
+        {extension, [".erl", ".hrl", ".c", ".cpp", ".cc", ".h", ".hpp", ".hh", ".src"]},
+        {dirs, [".", "deps"]},
+        {sub_dirs, [
+            {"src", {ssync, do_compile}},
+            {"c_src", {ssync, do_compile}},
+            {"include", {ssync, do_compile}},
+            {"ebin", {ssync, do_reload}}
+        ]}
     ]}
 ]}.
