@@ -60,7 +60,9 @@ reload(ModuleName) ->
 %%----------------------------------------------------------------------
 
 init(_Args) ->
-    ssync(),
+    {ok, Dirs} = application:get_env(dirs),
+    {ok, SubDirs} = application:get_env(sub_dirs),
+    [watch(Dir, SubDir, Fun) || Dir <- Dirs, {SubDir, Fun} <- SubDirs],
     {ok, []}.
 
 %%----------------------------------------------------------------------
@@ -131,12 +133,6 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
-
-ssync() ->
-    {ok, Dirs} = application:get_env(dirs),
-    {ok, SubDirs} = application:get_env(sub_dirs),
-    [watch(Dir, SubDir, Fun) || Dir <- Dirs, {SubDir, Fun} <- SubDirs],
-    ok.
 
 watch(".", SubDir, Fun) ->
     watch([SubDir], Fun);
