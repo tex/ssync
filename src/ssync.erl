@@ -150,18 +150,12 @@ watch(Dir, SubDir, Fun) ->
     watch(filelib:wildcard(filename:join([Dir, "*", SubDir])), Fun).
 
 watch(Paths, Callback) ->
-    lists:foreach(
-        fun(Path) ->
-                lists:foreach(
-                    fun(X) ->
-                            case filelib:is_dir(X) of
-                                true ->
-                                    erlinotify:watch(X, Callback);
-                                _ ->
-                                    ok
-                            end
-                    end, dirs_recursive(Path) )
-        end, Paths ).
+    lists:foreach(fun(Path) -> watch_recursive(Path, Callback) end,
+                  Paths ).
+
+watch_recursive(Path, Callback) ->
+    lists:foreach(fun(X) -> erlinotify:watch(X, Callback) end,
+                  dirs_recursive(Path) ).
 
 dirs_recursive(Path) ->
     lists:map(fun(TaggedDir) -> element(2, TaggedDir) end,
