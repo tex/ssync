@@ -17,7 +17,7 @@
 
 -export([start/0]).
 
--export([do_compile/1, do_reload/1]).
+-export([do_compile/1, do_reload/1, do_watch_root/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -29,7 +29,9 @@
 start() ->
     application:start(ets_manager),
     application:start(erlinotify),
-    application:start(ssync).
+    application:start(ssync),
+    rebar('get-deps'),
+    rebar(compile).
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
@@ -141,6 +143,9 @@ ssync() ->
 watch(".", SubDir, Fun) ->
     watch([SubDir], Fun);
 
+watch(Dir, ".", Fun) ->
+    watch([Dir], Fun);
+
 watch(Dir, SubDir, Fun) ->
     watch(filelib:wildcard(filename:join([Dir, "*", SubDir])), Fun).
 
@@ -239,5 +244,14 @@ do_reload({_File, file, close_write, _Cookie, Name} = _Info) ->
     reload(Name);
 
 do_reload({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
+    ok.
+
+do_watch_root({_File, file, move_to, _Cookie, "rebar.config"} = _Info) ->
+    rebar('get-deps');
+
+do_watch_root({_File, file, close_write, _Cookie, "rebar.config"} = _Info) ->
+    rebar('get-deps');
+
+do_watch_root({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.
 
