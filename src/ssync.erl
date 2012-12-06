@@ -99,7 +99,9 @@ handle_cast({reload, ModuleName}, State) ->
         ".beam" ->
             Module = list_to_atom(filename:rootname(ModuleName)),
             code:purge(Module),
-            {module, Module} = code:load_file(Module);
+            {module, Module} = code:load_file(Module),
+            Summary = io_lib:format("ssync: reloaded (~s)", [Module]),
+            notify:notify(Summary, []);
         _ -> ok
     end,
     {noreply, State};
