@@ -186,26 +186,26 @@ print_project(Project, Msgs) ->
     notify:notify(io_lib:format("ssync: build (~s)", [Project]), Msgs).
 
 parse_output(eof, {Project, Msgs} = _Acc) ->
-    print_project(Project, Msgs);
-
-parse_output(BinMsg, Acc) ->
-    Msg = binary_to_list(BinMsg),
-    case re:run(Msg, "==> \\S+") of
-        {match, [{Start, Length}]} ->
-            Project = string:substr(Msg, Start + 1 + 4, Length - 4),
+    print_project(Project, lists:reverse(Msgs));
+parse_output({eol, BinMsg}, Acc) ->
+    case re:run(BinMsg, "==> (\\S+)", [{capture, [1], list}]) of
+        {match, [Project]} ->
             case Acc of
                 {Project, _} ->
                     Acc;
                 {PrevProject, PrevMsgs} ->
-                    print_project(PrevProject, PrevMsgs),
+                    print_project(PrevProject, lists:reverse(PrevMsgs)),
                     {Project, []};
                 _ ->
                     {Project, []}
             end;
         nomatch ->
             {Project, Msgs} = Acc,
-            {Project, Msgs ++ [Msg]}
-    end.
+            {Project, [BinMsg | Msgs]}
+    end;
+parse_output({noeol, BinMsg}, {Project, Acc}) ->
+	StartLine = hd(Acc),
+	{Project, [<<StartLine/binary, BinMsg/binary>> | tl(Acc)]}.
 
 do_compile({File, dir, create, _Cookie, Name} = _Info) ->
     FN = filename:join(File, Name),
