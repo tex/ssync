@@ -17,7 +17,7 @@
 
 -export([start/0]).
 
--export([do_compile/1, do_reload/1]).
+-export([do_compile/1, do_reload/1, do_watch_root/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -29,7 +29,9 @@
 start() ->
     application:start(ets_manager),
     application:start(erlinotify),
-    application:start(ssync).
+    application:start(ssync),
+    rebar('get-deps'),
+    rebar(compile).
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
@@ -137,22 +139,19 @@ code_change(_OldVsn, State, _Extra) ->
 watch(".", SubDir, Fun) ->
     watch([SubDir], Fun);
 
+watch(Dir, ".", Fun) ->
+    watch([Dir], Fun);
+
 watch(Dir, SubDir, Fun) ->
     watch(filelib:wildcard(filename:join([Dir, "*", SubDir])), Fun).
 
 watch(Paths, Callback) ->
-    lists:foreach(
-        fun(Path) ->
-                lists:foreach(
-                    fun(X) ->
-                            case filelib:is_dir(X) of
-                                true ->
-                                    erlinotify:watch(X, Callback);
-                                _ ->
-                                    ok
-                            end
-                    end, dirs_recursive(Path) )
-        end, Paths ).
+    lists:foreach(fun(Path) -> watch_recursive(Path, Callback) end,
+                  Paths ).
+
+watch_recursive(Path, Callback) ->
+    lists:foreach(fun(X) -> erlinotify:watch(X, Callback) end,
+                  dirs_recursive(Path) ).
 
 dirs_recursive(Path) ->
     lists:map(fun(TaggedDir) -> element(2, TaggedDir) end,
@@ -235,5 +234,14 @@ do_reload({_File, file, close_write, _Cookie, Name} = _Info) ->
     reload(Name);
 
 do_reload({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
+    ok.
+
+do_watch_root({_File, file, move_to, _Cookie, "rebar.config"} = _Info) ->
+    rebar('get-deps');
+
+do_watch_root({_File, file, close_write, _Cookie, "rebar.config"} = _Info) ->
+    rebar('get-deps');
+
+do_watch_root({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.
 
