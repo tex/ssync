@@ -17,8 +17,6 @@
 
 -export([start/0]).
 
--export([do_compile/1, do_reload/1, do_watch_root/1]).
-
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
@@ -103,7 +101,9 @@ handle_cast({reload, ModuleName}, State) ->
         ".beam" ->
             Module = list_to_atom(filename:rootname(ModuleName)),
             code:purge(Module),
-            {module, Module} = code:load_file(Module);
+            {module, Module} = code:load_file(Module),
+            Summary = io_lib:format("ssync: reloaded (~s)", [Module]),
+            notify:notify(Summary, []);
         _ -> ok
     end,
     {noreply, State};
@@ -145,13 +145,29 @@ watch(Dir, ".", Fun) ->
 watch(Dir, SubDir, Fun) ->
     watch(filelib:wildcard(filename:join([Dir, "*", SubDir])), Fun).
 
-watch(Paths, Callback) ->
-    lists:foreach(fun(Path) -> watch_recursive(Path, Callback) end,
-                  Paths ).
+watch(Paths, reload = CallbackName) ->
+    lists:foreach(
+        fun(Path) ->
+                code:add_path(Path),
+                watch_recursive(Path, CallbackName)
+        end, Paths );
 
-watch_recursive(Path, Callback) ->
-    lists:foreach(fun(X) -> erlinotify:watch(X, Callback) end,
+watch(Paths, CallbackName) ->
+    lists:foreach(
+        fun(Path) ->
+                watch_recursive(Path, CallbackName)
+        end, Paths ).
+
+watch_recursive(Path, CallbackName) ->
+    lists:foreach(fun(X) -> erlinotify:watch(X, get_callback(CallbackName)) end,
                   dirs_recursive(Path) ).
+
+get_callback(reload) ->
+    fun do_reload/1;
+get_callback(compile) ->
+    fun do_compile/1;
+get_callback(watch_root) ->
+    fun do_watch_root/1.
 
 dirs_recursive(Path) ->
     lists:map(fun(TaggedDir) -> element(2, TaggedDir) end,
@@ -177,26 +193,28 @@ print_project(Project, Msgs) ->
     notify:notify(io_lib:format("ssync: build (~s)", [Project]), Msgs).
 
 parse_output(eof, {Project, Msgs} = _Acc) ->
-    print_project(Project, Msgs);
+    print_project(Project, lists:reverse(Msgs));
 
-parse_output(BinMsg, Acc) ->
-    Msg = binary_to_list(BinMsg),
-    case re:run(Msg, "==> \\S+") of
-        {match, [{Start, Length}]} ->
-            Project = string:substr(Msg, Start + 1 + 4, Length - 4),
+parse_output({eol, BinMsg}, Acc) ->
+    case re:run(BinMsg, "==> (\\S+)", [{capture, [1], list}]) of
+        {match, [Project]} ->
             case Acc of
                 {Project, _} ->
                     Acc;
                 {PrevProject, PrevMsgs} ->
-                    print_project(PrevProject, PrevMsgs),
+                    print_project(PrevProject, lists:reverse(PrevMsgs)),
                     {Project, []};
                 _ ->
                     {Project, []}
             end;
         nomatch ->
             {Project, Msgs} = Acc,
-            {Project, Msgs ++ [Msg]}
-    end.
+            {Project, [BinMsg | Msgs]}
+    end;
+
+parse_output({noeol, BinMsg}, {Project, Acc}) ->
+	StartLine = hd(Acc),
+	{Project, [<<StartLine/binary, BinMsg/binary>> | tl(Acc)]}.
 
 do_compile({File, dir, create, _Cookie, Name} = _Info) ->
     FN = filename:join(File, Name),
@@ -244,4 +262,3 @@ do_watch_root({_File, file, close_write, _Cookie, "rebar.config"} = _Info) ->
 
 do_watch_root({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.
-

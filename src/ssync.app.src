@@ -9,11 +9,11 @@
         {extension, [".erl", ".hrl", ".c", ".cpp", ".cc", ".h", ".hpp", ".hh", ".src"]},
         {dirs, [".", "deps"]},
         {sub_dirs, [
-            {".", {ssync, do_watch_root}},
-            {"src", {ssync, do_compile}},
-            {"c_src", {ssync, do_compile}},
-            {"include", {ssync, do_compile}},
-            {"ebin", {ssync, do_reload}}
+            {".", watch_root},
+            {"src", compile},
+            {"c_src", compile},
+            {"include", compile},
+            {"ebin", reload}
         ]}
     ]}
 ]}.

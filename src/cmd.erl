@@ -3,7 +3,7 @@
 -export([cmd/3]).
 
 cmd(Cmd, Args, Callback) ->
-    Tag = make_ref(), 
+    Tag = make_ref(),
     {Pid, Ref} = erlang:spawn_monitor(fun() ->
                     Rv = cmd_sync(Cmd, Args, Callback),
                     exit({Tag, Rv})
@@ -15,8 +15,8 @@ cmd(Cmd, Args, Callback) ->
 
 cmd_sync(Cmd, Args, Callback) ->
     P = open_port({spawn_executable, os:find_executable(Cmd)}, [
-                binary, use_stdio, stream, eof, {args, Args}]),
-    cmd_receive(P, Callback, []).
+                binary, use_stdio, stream, {line, 1024}, eof, {args, Args}]),
+    cmd_receive(P, Callback, <<>>).
 
 cmd_receive(Port, Callback, Acc) ->
     receive
