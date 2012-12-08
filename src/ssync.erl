@@ -166,8 +166,8 @@ get_callback(reload) ->
     fun do_reload/1;
 get_callback(compile) ->
     fun do_compile/1;
-get_callback(watch_root) ->
-    fun do_watch_root/1.
+get_callback(watch_rebar_config) ->
+    fun do_watch_rebar_config/1.
 
 dirs_recursive(Path) ->
     lists:map(fun(TaggedDir) -> element(2, TaggedDir) end,
@@ -254,11 +254,14 @@ do_reload({_File, file, close_write, _Cookie, Name} = _Info) ->
 do_reload({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.
 
-do_watch_root({_File, file, move_to, _Cookie, "rebar.config"} = _Info) ->
+do_watch_rebar_config({_File, file, move_to, _Cookie, "rebar.config"} = _Info) ->
     rebar('get-deps');
 
-do_watch_root({_File, file, close_write, _Cookie, "rebar.config"} = _Info) ->
+do_watch_rebar_config({_File, file, close_write, _Cookie, "rebar.config"} = _Info) ->
     rebar('get-deps');
+
+do_watch_rebar_config({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
+    ok.
 
 do_watch_root({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.

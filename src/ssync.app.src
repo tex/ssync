@@ -9,7 +9,7 @@
         {extension, [".erl", ".hrl", ".c", ".cpp", ".cc", ".h", ".hpp", ".hh", ".src"]},
         {dirs, [".", "deps"]},
         {sub_dirs, [
-            {".", watch_root},
+            {".", watch_rebar_config},
             {"src", compile},
             {"c_src", compile},
             {"include", compile},
