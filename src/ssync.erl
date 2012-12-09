@@ -138,6 +138,9 @@ watch({Path, reload = CallbackName}) ->
     code:add_path(Path),
     watch_recursive(Path, CallbackName);
 
+watch({Path, watch_rebar_config = CallbackName}) ->
+    erlinotify:watch(Path, get_callback(CallbackName));
+
 watch({Path, CallbackName}) ->
     watch_recursive(Path, CallbackName);
 
