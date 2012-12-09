@@ -60,9 +60,7 @@ reload(ModuleName) ->
 %%----------------------------------------------------------------------
 
 init(_Args) ->
-    {ok, Dirs} = application:get_env(dirs),
-    {ok, SubDirs} = application:get_env(sub_dirs),
-    [watch(Dir, SubDir, Fun) || Dir <- Dirs, {SubDir, Fun} <- SubDirs],
+    watch(ssync_rebar_config:get_all_dirs(".")),
     {ok, []}.
 
 %%----------------------------------------------------------------------
@@ -136,27 +134,16 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-watch(".", SubDir, Fun) ->
-    watch([SubDir], Fun);
+watch({Path, reload = CallbackName}) ->
+    code:add_path(Path),
+    watch_recursive(Path, CallbackName);
 
-watch(Dir, ".", Fun) ->
-    watch([Dir], Fun);
+watch({Path, CallbackName}) ->
+    watch_recursive(Path, CallbackName);
 
-watch(Dir, SubDir, Fun) ->
-    watch(filelib:wildcard(filename:join([Dir, "*", SubDir])), Fun).
-
-watch(Paths, reload = CallbackName) ->
-    lists:foreach(
-        fun(Path) ->
-                code:add_path(Path),
-                watch_recursive(Path, CallbackName)
-        end, Paths );
-
-watch(Paths, CallbackName) ->
-    lists:foreach(
-        fun(Path) ->
-                watch_recursive(Path, CallbackName)
-        end, Paths ).
+watch(PCs) when is_list(PCs) ->
+    lists:foreach(fun(X) -> watch(X) end,
+                  PCs ).
 
 watch_recursive(Path, CallbackName) ->
     lists:foreach(fun(X) -> erlinotify:watch(X, get_callback(CallbackName)) end,
@@ -255,13 +242,12 @@ do_reload({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.
 
 do_watch_rebar_config({_File, file, move_to, _Cookie, "rebar.config"} = _Info) ->
+    watch(ssync_rebar_config:get_all_dirs(".")),
     rebar('get-deps');
 
 do_watch_rebar_config({_File, file, close_write, _Cookie, "rebar.config"} = _Info) ->
+    watch(ssync_rebar_config:get_all_dirs(".")),
     rebar('get-deps');
 
 do_watch_rebar_config({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
-    ok.
-
-do_watch_root({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.
