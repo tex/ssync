@@ -83,11 +83,13 @@ handle_call(_Request, _From, State) ->
 %%----------------------------------------------------------------------
 handle_cast(stop, State) ->
   {stop, normal, State};
+
 handle_cast({compile}, State) ->
     notify:notify("ssync: build started", []),
     cmd:cmd("rebar", ["compile"], fun parse_output/2),
     notify:notify("ssync: build finished", []),
     {noreply, State};
+
 handle_cast({'get-deps'}, State) ->
     notify:notify("ssync: get-deps started", []),
     cmd:cmd("rebar", ["get-deps"], fun parse_output/2),
