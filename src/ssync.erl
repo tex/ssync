@@ -92,7 +92,9 @@ handle_cast({'get-deps'}, State) ->
     notify:notify("ssync: get-deps started", []),
     cmd:cmd("rebar", ["get-deps"], fun parse_output/2),
     notify:notify("ssync: get-deps finished", []),
+    watch(ssync_rebar_config:get_all_dirs(".")),
     {noreply, State};
+
 handle_cast({reload, ModuleName}, State) ->
     Ext = string:to_lower(filename:extension(ModuleName)),
     case Ext of
@@ -105,6 +107,7 @@ handle_cast({reload, ModuleName}, State) ->
         _ -> ok
     end,
     {noreply, State};
+
 handle_cast(Msg, State) ->
   ?log({unknown_message, Msg}),
   {noreply, State}.
@@ -245,11 +248,9 @@ do_reload({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.
 
 do_watch_rebar_config({_File, file, move_to, _Cookie, "rebar.config"} = _Info) ->
-    watch(ssync_rebar_config:get_all_dirs(".")),
     rebar('get-deps');
 
 do_watch_rebar_config({_File, file, close_write, _Cookie, "rebar.config"} = _Info) ->
-    watch(ssync_rebar_config:get_all_dirs(".")),
     rebar('get-deps');
 
 do_watch_rebar_config({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
