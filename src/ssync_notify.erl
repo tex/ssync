@@ -21,29 +21,27 @@
 %% THE SOFTWARE.
 %% -------------------------------------------------------------------
 
--module(ssync_sup).
--behaviour(supervisor).
+-module(ssync_notify).
+-export([notify/2]).
 
-%% API
--export([start_link/0]).
+-define(TIME_PER_LINE, 3000).
 
-%% Supervisor callbacks
--export([init/1]).
+notify(Title, Msgs) ->
+    {ok, Outputs} = application:get_env(ssync, output),
+    lists:foreach(
+        fun(Output) ->
+                notify(Output, Title, Msgs)
+        end, Outputs ).
 
-%% Helper macro for declaring children of supervisor
--define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
+notify('notify-send', Title, Msgs) ->
+    Msg1 = re:replace(Msgs, "'", "\\\\'", [global, {return, list}]),
+    Msg2 = re:replace(Msg1, "\\n", "\\\\n", [global, {return, list}]),
+    Timeout = case length(Msgs) of 0 -> 100; Lines -> ?TIME_PER_LINE * Lines end,
+    os:cmd(io_lib:format("notify-send -t ~p \"~s\" \"~s\"", [Timeout, Title, Msg2]));
 
-%% ===================================================================
-%% API functions
-%% ===================================================================
-
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
-
-%% ===================================================================
-%% Supervisor callbacks
-%% ===================================================================
-
-init(_Args) ->
-    {ok, { {one_for_one, 5, 10}, [?CHILD(ssync, worker)] } }.
-
+notify(console, Title, []) ->
+    io:format("~s~n", [Title]);
+notify(console, Title, Msgs) ->
+    lists:foreach(fun(Msg) ->
+            io:format("~s: ~s~n", [Title, Msg])
+        end, Msgs).

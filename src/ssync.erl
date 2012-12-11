@@ -1,5 +1,25 @@
-%% Copyright (c) 2012 Milan Svoboda
-%% Released under the MIT License.
+%% ssync: Rebarized Erlang code always compiled
+%%
+%% Copyright (c) 2012 Milan Svoboda (milan.svoboda@centrum.cz)
+%%
+%% Permission is hereby granted, free of charge, to any person obtaining a copy
+%% of this software and associated documentation files (the "Software"), to deal
+%% in the Software without restriction, including without limitation the rights
+%% to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+%% copies of the Software, and to permit persons to whom the Software is
+%% furnished to do so, subject to the following conditions:
+%%
+%% The above copyright notice and this permission notice shall be included in
+%% all copies or substantial portions of the Software.
+%%
+%% THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+%% IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+%% FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+%% AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+%% LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+%% OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+%% THE SOFTWARE.
+%% -------------------------------------------------------------------
 
 -module(ssync).
 -behaviour(gen_server).
@@ -85,15 +105,15 @@ handle_cast(stop, State) ->
   {stop, normal, State};
 
 handle_cast({compile}, State) ->
-    notify:notify("ssync: build started", []),
-    cmd:cmd("rebar", ["compile"], fun parse_output/2),
-    notify:notify("ssync: build finished", []),
+    ssync_notify:notify("ssync: build started", []),
+    ssync_cmd:cmd("rebar", ["compile"], fun parse_output/2),
+    ssync_notify:notify("ssync: build finished", []),
     {noreply, State};
 
 handle_cast({'get-deps'}, State) ->
-    notify:notify("ssync: get-deps started", []),
-    cmd:cmd("rebar", ["get-deps"], fun parse_output/2),
-    notify:notify("ssync: get-deps finished", []),
+    ssync_notify:notify("ssync: get-deps started", []),
+    ssync_cmd:cmd("rebar", ["get-deps"], fun parse_output/2),
+    ssync_notify:notify("ssync: get-deps finished", []),
     watch(ssync_rebar_config:get_all_dirs(".")),
     {noreply, State};
 
@@ -105,7 +125,7 @@ handle_cast({reload, ModuleName}, State) ->
             code:purge(Module),
             {module, Module} = code:load_file(Module),
             Summary = io_lib:format("ssync: reloaded (~s)", [Module]),
-            notify:notify(Summary, []);
+            ssync_notify:notify(Summary, []);
         _ -> ok
     end,
     {noreply, State};
@@ -179,7 +199,7 @@ print_project(_, []) ->
     ok;
 
 print_project(Project, Msgs) ->
-    notify:notify(io_lib:format("ssync: build (~s)", [Project]), Msgs).
+    ssync_notify:notify(io_lib:format("ssync: build (~s)", [Project]), Msgs).
 
 parse_output(eof, {Project, Msgs} = _Acc) ->
     print_project(Project, lists:reverse(Msgs));
