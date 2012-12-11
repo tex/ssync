@@ -149,13 +149,17 @@ watch({Path, watch_rebar_config = CallbackName}) ->
 watch({Path, CallbackName}) ->
     watch_recursive(Path, CallbackName);
 
-watch(PCs) when is_list(PCs) ->
-    lists:foreach(fun(X) -> watch(X) end,
-                  PCs ).
+watch([]) ->
+    ok;
+
+watch([F|R]) ->
+    watch(F),
+    watch(R).
 
 watch_recursive(Path, CallbackName) ->
-    lists:foreach(fun(X) -> erlinotify:watch(X, get_callback(CallbackName)) end,
-                  dirs_recursive(Path) ).
+    Dirs = subdirs(Path) ++ [{dir, Path}],
+    lists:foreach(fun({dir, X}) -> erlinotify:watch(X, get_callback(CallbackName)) end,
+                  lists:flatten(Dirs) ).
 
 get_callback(reload) ->
     fun do_reload/1;
@@ -164,22 +168,10 @@ get_callback(compile) ->
 get_callback(watch_rebar_config) ->
     fun do_watch_rebar_config/1.
 
-dirs_recursive(Path) ->
-    lists:map(fun(TaggedDir) -> element(2, TaggedDir) end,
-              tagged_dirs_recursive(Path) ).
-
-tagged_dirs_recursive([]) ->
-    [];
-
-tagged_dirs_recursive(Path) ->
-    lists:flatten([
-            {directory, Path},
-            lists:map(fun(X) -> tagged_dirs_recursive(X) end,
-                      get_dirs(Path) ) ]).
-
-get_dirs(Path) ->
-    lists:filter(fun(X) -> filelib:is_dir(X) end,
-                 filelib:wildcard(filename:join(Path, "*")) ).
+subdirs(Path) ->
+    [[{dir, Y} | subdirs(Y)] ||
+            Y <- filelib:wildcard(filename:join([Path, "*"])),
+            filelib:is_dir(Y) ].
 
 print_project(_, []) ->
     ok;
