@@ -157,9 +157,11 @@ watch([F|R]) ->
     watch(R).
 
 watch_recursive(Path, CallbackName) ->
+    Callback = get_callback(CallbackName),
     Dirs = subdirs(Path) ++ [{dir, Path}],
-    lists:foreach(fun({dir, X}) -> erlinotify:watch(X, get_callback(CallbackName)) end,
-                  lists:flatten(Dirs) ).
+
+    [erlinotify:watch(X, Callback) ||
+        {dir, X} <- lists:flatten(Dirs) ], ok.
 
 get_callback(reload) ->
     fun do_reload/1;
