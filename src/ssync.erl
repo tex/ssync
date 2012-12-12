@@ -28,6 +28,7 @@
 -define(log(T),
         error_logger:info_report(
           [process_info(self(),current_function),{line,?LINE},T])).
+-define(ACTION_TIMEOUT, 1000).
 
 %% ------------------------------------------------------------------
 %% API Function Exports
@@ -59,10 +60,10 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 rebar(compile) ->
-    gen_server:cast(?MODULE, {compile});
+    gen_server:cast(?MODULE, {50, compile});
 
 rebar('get-deps') ->
-    gen_server:cast(?MODULE, {'get-deps'}).
+    gen_server:cast(?MODULE, {25, 'get-deps'}).
 
 reload(ModuleName) ->
     gen_server:cast(?MODULE, {reload, ModuleName}).
@@ -93,7 +94,7 @@ init(_Args) ->
 %%          {stop, Reason, State} (terminate/2 is called)
 %%----------------------------------------------------------------------
 handle_call(_Request, _From, State) ->
-    {reply, ok, State}.
+    {reply, ok, State, ?ACTION_TIMEOUT}.
 
 %%----------------------------------------------------------------------
 %% Func: handle_cast/2
@@ -102,20 +103,7 @@ handle_call(_Request, _From, State) ->
 %%          {stop, Reason, State} (terminate/2 is called)
 %%----------------------------------------------------------------------
 handle_cast(stop, State) ->
-  {stop, normal, State};
-
-handle_cast({compile}, State) ->
-    ssync_notify:notify("ssync: build started", []),
-    ssync_cmd:cmd("rebar", ["compile"], fun parse_output/2),
-    ssync_notify:notify("ssync: build finished", []),
-    {noreply, State};
-
-handle_cast({'get-deps'}, State) ->
-    ssync_notify:notify("ssync: get-deps started", []),
-    ssync_cmd:cmd("rebar", ["get-deps"], fun parse_output/2),
-    ssync_notify:notify("ssync: get-deps finished", []),
-    watch(ssync_rebar_config:get_all_dirs(".")),
-    {noreply, State};
+    {stop, normal, State};
 
 handle_cast({reload, ModuleName}, State) ->
     Ext = string:to_lower(filename:extension(ModuleName)),
@@ -128,11 +116,14 @@ handle_cast({reload, ModuleName}, State) ->
             ssync_notify:notify(Summary, []);
         _ -> ok
     end,
-    {noreply, State};
+    {noreply, State, ?ACTION_TIMEOUT};
+
+handle_cast(Action = {_, _}, State) ->
+    {noreply, [Action | State], ?ACTION_TIMEOUT};
 
 handle_cast(Msg, State) ->
   ?log({unknown_message, Msg}),
-  {noreply, State}.
+  {noreply, State, ?ACTION_TIMEOUT}.
 
 %%----------------------------------------------------------------------
 %% Func: handle_info/2
@@ -140,9 +131,14 @@ handle_cast(Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State} (terminate/2 is called)
 %%----------------------------------------------------------------------
+handle_info(timeout, ActionList) ->
+    Actions = lists:usort(ActionList),
+    lists:foreach(fun make_action/1, Actions),
+    {noreply, []};
+
 handle_info(Info, State) ->
   ?log({unknown_message, Info}),
-  {noreply, State}.
+  {noreply, State, ?ACTION_TIMEOUT}.
 
 %%----------------------------------------------------------------------
 %% Func: terminate/2
@@ -158,6 +154,17 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+make_action({_, compile}) ->
+    ssync_notify:notify("ssync: build started", []),
+    ssync_cmd:cmd("rebar", ["compile"], fun parse_output/2),
+    ssync_notify:notify("ssync: build finished", []);
+
+make_action({_, 'get-deps'}) ->
+    ssync_notify:notify("ssync: get-deps started", []),
+    ssync_cmd:cmd("rebar", ["get-deps"], fun parse_output/2),
+    ssync_notify:notify("ssync: get-deps finished", []),
+    watch(ssync_rebar_config:get_all_dirs(".")).
 
 watch({Path, reload = CallbackName}) ->
     code:add_path(Path),
@@ -222,8 +229,8 @@ parse_output({eol, BinMsg}, Acc) ->
     end;
 
 parse_output({noeol, BinMsg}, {Project, Acc}) ->
-	StartLine = hd(Acc),
-	{Project, [<<StartLine/binary, BinMsg/binary>> | tl(Acc)]}.
+    StartLine = hd(Acc),
+    {Project, [<<StartLine/binary, BinMsg/binary>> | tl(Acc)]}.
 
 do_compile({File, dir, create, _Cookie, Name} = _Info) ->
     FN = filename:join(File, Name),
