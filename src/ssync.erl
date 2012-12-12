@@ -229,8 +229,8 @@ parse_output({eol, BinMsg}, Acc) ->
     end;
 
 parse_output({noeol, BinMsg}, {Project, Acc}) ->
-	StartLine = hd(Acc),
-	{Project, [<<StartLine/binary, BinMsg/binary>> | tl(Acc)]}.
+    StartLine = hd(Acc),
+    {Project, [<<StartLine/binary, BinMsg/binary>> | tl(Acc)]}.
 
 do_compile({File, dir, create, _Cookie, Name} = _Info) ->
     FN = filename:join(File, Name),
