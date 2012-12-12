@@ -31,7 +31,7 @@ get_all_dirs(Root) ->
             [{filename:join([Root, Path]), CallbackName} ||
                 {Path, CallbackName} <- Dirs ] ++
             [get_all_dirs(Dir) || Dir <- get_deps(Root, Terms)] ++
-            [get_all_dirs(filename:join([Root, Dir])) || Dir <- get_sub_dirs(Root, Terms)];
+            [get_all_dirs(Dir) || Dir <- get_sub_dirs(Root, Terms)];
         {error, _} ->
             {ok, Dirs} = application:get_env(ssync, dirs),
             [{filename:join([Root, Path]), CallbackName} ||
@@ -42,5 +42,8 @@ get_deps(Root, Terms) ->
     DepsDir = proplists:get_value(deps_dir, Terms, "deps"),
     filelib:wildcard(filename:join([Root, DepsDir, "*"])).
 
-get_sub_dirs(_Root, Terms) ->
-    proplists:get_value(sub_dirs, Terms, []).
+get_sub_dirs(Root, Terms) ->
+    RebarSubDir = proplists:get_value(sub_dirs, Terms, []),
+    lists:flatmap(fun(Dir) ->
+            filelib:wildcard(filename:join([Root, Dir]))
+        end, RebarSubDir).
