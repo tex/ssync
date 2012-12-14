@@ -25,18 +25,35 @@
 -export([get_all_dirs/1]).
 
 get_all_dirs(Root) ->
-    case file:consult(filename:join(Root, "rebar.config")) of
-        {ok, Terms} ->
-            {ok, Dirs} = application:get_env(ssync, dirs),
-            [{filename:join([Root, Path]), CallbackName} ||
-                {Path, CallbackName} <- Dirs ] ++
-            [get_all_dirs(Dir) || Dir <- get_deps(Root, Terms)] ++
-            [get_all_dirs(Dir) || Dir <- get_sub_dirs(Root, Terms)];
-        {error, _} ->
-            {ok, Dirs} = application:get_env(ssync, dirs),
-            [{filename:join([Root, Path]), CallbackName} ||
-                {Path, CallbackName} <- Dirs ]
-    end.
+    Table = ets:new(ssync_rebar_config_table, []),
+    Dirs = get_all_dirs(Root, Table),
+    ets:delete(Table),
+    Dirs.
+
+get_all_dirs(Root, Table) ->
+    AbsRoot = ssync_filelib:safe_relative_path(Root),
+    get_all_dirs(Root, AbsRoot, Table, ets:lookup(Table, AbsRoot)).
+
+get_all_dirs(Root, AbsRoot, Table, []) ->
+    ets:insert(Table, {AbsRoot}),
+    Terms = file:consult(filename:join(Root, "rebar.config")),
+    parse_rebar_config(Root, Table, Terms);
+
+get_all_dirs(_Root, _AbsRoot, _Table, _) ->
+    [].
+
+parse_rebar_config(Root, Table, {ok, Terms}) ->
+    root_dirs(Root)
+    ++ [get_all_dirs(Dir, Table) || Dir <- get_deps(Root, Terms)]
+    ++ [get_all_dirs(Dir, Table) || Dir <- get_sub_dirs(Root, Terms)];
+
+parse_rebar_config(Root, _Table, {error, _}) ->
+    root_dirs(Root).
+
+root_dirs(Root) ->
+    {ok, Dirs} = application:get_env(ssync, dirs),
+    [{filename:join([Root, Path]), CallbackName} ||
+        {Path, CallbackName} <- Dirs ].
 
 get_deps(Root, Terms) ->
     DepsDir = proplists:get_value(deps_dir, Terms, "deps"),
@@ -46,4 +63,4 @@ get_sub_dirs(Root, Terms) ->
     RebarSubDir = proplists:get_value(sub_dirs, Terms, []),
     lists:flatmap(fun(Dir) ->
             filelib:wildcard(filename:join([Root, Dir]))
-        end, RebarSubDir).
+        end, RebarSubDir ).
