@@ -1,6 +1,9 @@
+%% @author Bob Ippolito <bob@mochimedia.com>
+%% @copyright 2007 Mochi Media, Inc.
+
 -module(ssync_filelib).
 
--export([safe_relative_path/1]).
+-export([safe_relative_path/1, partition/2]).
 
 %% @spec safe_relative_path(string()) -> string() | undefined
 %% @doc Return the reduced version of a relative path or undefined if it
