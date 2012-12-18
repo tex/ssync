@@ -22,7 +22,9 @@
 %% -------------------------------------------------------------------
 
 -module(ssync_rebar_config).
--export([get_all_dirs/1]).
+-export([get_all_dirs/1, get_deps_dir/1]).
+
+-define(DEFAULT_DEPS_DIR, "deps").
 
 get_all_dirs(Root) ->
     Table = ets:new(ssync_rebar_config_table, []),
@@ -55,8 +57,17 @@ root_dirs(Root) ->
     [{filename:join([Root, Path]), CallbackName} ||
         {Path, CallbackName} <- Dirs ].
 
+get_deps_dir({ok, Terms}) ->
+    proplists:get_value(deps_dir, Terms, ?DEFAULT_DEPS_DIR);
+
+get_deps_dir({error, _}) ->
+    ?DEFAULT_DEPS_DIR;
+
+get_deps_dir(Root) ->
+    get_deps_dir(file:consult(filename:join(Root, "rebar.config"))).
+
 get_deps(Root, Terms) ->
-    DepsDir = proplists:get_value(deps_dir, Terms, "deps"),
+    DepsDir = proplists:get_value(deps_dir, Terms, ?DEFAULT_DEPS_DIR),
     filelib:wildcard(filename:join([Root, DepsDir, "*"])).
 
 get_sub_dirs(Root, Terms) ->

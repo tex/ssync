@@ -61,6 +61,9 @@ start_link() ->
 rebar(compile) ->
     gen_server:cast(?MODULE, {50, compile});
 
+rebar(compile_skip_deps) ->
+    gen_server:cast(?MODULE, {50, compile_skip_deps});
+
 rebar('get-deps') ->
     gen_server:cast(?MODULE, {25, 'get-deps'}).
 
@@ -159,6 +162,11 @@ make_action({_, compile}) ->
     ssync_cmd:cmd("rebar", ["compile"], fun parse_output/2),
     ssync_notify:notify("ssync: build finished", []);
 
+make_action({_, compile_skip_deps}) ->
+    ssync_notify:notify("ssync: build started (skip deps)", []),
+    ssync_cmd:cmd("rebar", ["skip_deps=true", "compile"], fun parse_output/2),
+    ssync_notify:notify("ssync: build finished (skip deps)", []);
+
 make_action({_, 'get-deps'}) ->
     ssync_notify:notify("ssync: get-deps started", []),
     ssync_cmd:cmd("rebar", ["get-deps"], fun parse_output/2),
@@ -239,12 +247,16 @@ do_compile({File, dir, delete, _Cookie, Name} = _Info) ->
     FN = filename:join(File, Name),
     erlinotify:unwatch(FN);
 
-do_compile({_File, file, close_write, _Cookie, Name} = _Info) ->
+do_compile({File, file, close_write, _Cookie, Name} = _Info) ->
     Ext = string:to_lower(filename:extension(Name)),
     {ok, Exts} = application:get_env(ssync, extension),
     case lists:any(fun(X) -> X == Ext end, Exts) of
         true ->
-            rebar(compile);
+            DepsDir = filename:join([".", ssync_rebar_config:get_deps_dir(".")]),
+            case lists:prefix(DepsDir, File) of
+                true  -> rebar(compile);
+                false -> rebar(compile_skip_deps)
+            end;
         false ->
             ok
     end;
