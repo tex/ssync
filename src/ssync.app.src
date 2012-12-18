@@ -6,6 +6,7 @@
     {registered, []},
     {env, [
         {output, ['notify-send', console]},
+        {timeout, 2000},
         {extension, [".erl", ".hrl", ".c", ".cpp", ".cc", ".h", ".hpp", ".hh", ".src"]},
         {dirs, [
             {"", watch_rebar_config},

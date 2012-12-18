@@ -28,7 +28,6 @@
 -define(log(T),
         error_logger:info_report(
           [process_info(self(),current_function),{line,?LINE},T])).
--define(ACTION_TIMEOUT, 1000).
 
 %% ------------------------------------------------------------------
 %% API Function Exports
@@ -94,7 +93,7 @@ init(_Args) ->
 %%          {stop, Reason, State} (terminate/2 is called)
 %%----------------------------------------------------------------------
 handle_call(_Request, _From, State) ->
-    {reply, ok, State, ?ACTION_TIMEOUT}.
+    {reply, ok, State, get_action_timeout()}.
 
 %%----------------------------------------------------------------------
 %% Func: handle_cast/2
@@ -116,14 +115,14 @@ handle_cast({reload, ModuleName}, State) ->
             ssync_notify:notify(Summary, []);
         _ -> ok
     end,
-    {noreply, State, ?ACTION_TIMEOUT};
+    {noreply, State, get_action_timeout()};
 
 handle_cast(Action = {_, _}, State) ->
-    {noreply, [Action | State], ?ACTION_TIMEOUT};
+    {noreply, [Action | State], get_action_timeout()};
 
 handle_cast(Msg, State) ->
   ?log({unknown_message, Msg}),
-  {noreply, State, ?ACTION_TIMEOUT}.
+  {noreply, State, get_action_timeout()}.
 
 %%----------------------------------------------------------------------
 %% Func: handle_info/2
@@ -138,7 +137,7 @@ handle_info(timeout, ActionList) ->
 
 handle_info(Info, State) ->
   ?log({unknown_message, Info}),
-  {noreply, State, ?ACTION_TIMEOUT}.
+  {noreply, State, get_action_timeout()}.
 
 %%----------------------------------------------------------------------
 %% Func: terminate/2
@@ -278,3 +277,12 @@ do_watch_rebar_config({_File, file, close_write, _Cookie, "rebar.config"} = _Inf
 
 do_watch_rebar_config({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.
+
+get_action_timeout() ->
+    get_action_timeout(application:get_env(timeout)).
+
+get_action_timeout({ok, Timeout}) ->
+    Timeout;
+
+get_action_timeout(undefined) ->
+    1000.
