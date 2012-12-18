@@ -67,7 +67,7 @@ get_deps_dir(Root) ->
     get_deps_dir(file:consult(filename:join(Root, "rebar.config"))).
 
 get_deps(Root, Terms) ->
-    DepsDir = proplists:get_value(deps_dir, Terms, ?DEFAULT_DEPS_DIR),
+    DepsDir = get_deps_dir({ok, Terms}),
     filelib:wildcard(filename:join([Root, DepsDir, "*"])).
 
 get_sub_dirs(Root, Terms) ->
