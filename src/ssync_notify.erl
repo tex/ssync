@@ -27,7 +27,7 @@
 -define(TIME_PER_LINE, 3000).
 
 notify(Title, Msgs) ->
-    {ok, Outputs} = application:get_env(ssync, output),
+    {ok, Outputs} = application:get_env(ssync, outputs),
     lists:foreach(
         fun(Output) ->
                 notify(Output, Title, Msgs)
