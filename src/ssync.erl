@@ -59,13 +59,19 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 rebar(compile) ->
-    gen_server:cast(?MODULE, {50, compile});
+    gen_server:cast(?MODULE, {50, compile, []});
 
-rebar(compile_skip_deps) ->
-    gen_server:cast(?MODULE, {50, compile_skip_deps});
+rebar(doc) ->
+    gen_server:cast(?MODULE, {35, doc, []});
 
 rebar('get-deps') ->
-    gen_server:cast(?MODULE, {25, 'get-deps'}).
+    gen_server:cast(?MODULE, {25, 'get-deps', []}).
+
+rebar(compile, skip_deps) ->
+    gen_server:cast(?MODULE, {50, compile, [skip_deps]});
+
+rebar(doc, skip_deps) ->
+    gen_server:cast(?MODULE, {35, doc, [skip_deps]}).
 
 reload(ModuleName) ->
     gen_server:cast(?MODULE, {reload, ModuleName}).
@@ -120,7 +126,7 @@ handle_cast({reload, ModuleName}, State) ->
     end,
     {noreply, State, get_action_timeout()};
 
-handle_cast(Action = {_, _}, State) ->
+handle_cast(Action = {_, _, _}, State) ->
     {noreply, [Action | State], get_action_timeout()};
 
 handle_cast(Msg, State) ->
@@ -157,17 +163,27 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-make_action({_, compile}) ->
+make_action({_, compile, []}) ->
     ssync_notify:notify("ssync: build started", []),
     ssync_cmd:cmd("rebar", ["compile"], fun parse_output/2),
     ssync_notify:notify("ssync: build finished", []);
 
-make_action({_, compile_skip_deps}) ->
+make_action({_, compile, [skip_deps]}) ->
     ssync_notify:notify("ssync: build started (skip deps)", []),
     ssync_cmd:cmd("rebar", ["skip_deps=true", "compile"], fun parse_output/2),
     ssync_notify:notify("ssync: build finished (skip deps)", []);
 
-make_action({_, 'get-deps'}) ->
+make_action({_, doc, []}) ->
+    ssync_notify:notify("ssync: doc build started", []),
+    ssync_cmd:cmd("rebar", ["doc"], fun parse_output/2),
+    ssync_notify:notify("ssync: doc build finished", []);
+
+make_action({_, doc, [skip_deps]}) ->
+    ssync_notify:notify("ssync: doc build started (skip deps)", []),
+    ssync_cmd:cmd("rebar", ["skip_deps=true", "doc"], fun parse_output/2),
+    ssync_notify:notify("ssync: doc build finished (skip deps)", []);
+
+make_action({_, 'get-deps', []}) ->
     ssync_notify:notify("ssync: get-deps started", []),
     ssync_cmd:cmd("rebar", ["get-deps"], fun parse_output/2),
     ssync_notify:notify("ssync: get-deps finished", []),
@@ -194,6 +210,8 @@ watch_recursive(Path, CallbackName) ->
     Callback = get_callback(CallbackName),
     Dirs = subdirs(Path) ++ [{dir, Path}],
 
+    io:format("~s: ~p~n", [Path, CallbackName]),
+
     [erlinotify:watch(X, Callback) ||
         {dir, X} <- lists:flatten(Dirs) ], ok.
 
@@ -201,6 +219,8 @@ get_callback(reload) ->
     fun do_reload/1;
 get_callback(compile) ->
     fun do_compile/1;
+get_callback(doc) ->
+    fun do_doc/1;
 get_callback(watch_rebar_config) ->
     fun do_watch_rebar_config/1.
 
@@ -255,13 +275,38 @@ do_compile({File, file, close_write, _Cookie, Name} = _Info) ->
             DepsDir = filename:join([".", ssync_rebar_config:get_deps_dir(".")]),
             case lists:prefix(DepsDir, File) of
                 true  -> rebar(compile);
-                false -> rebar(compile_skip_deps)
+                false -> rebar(compile, skip_deps)
             end;
         false ->
             ok
     end;
 
 do_compile({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
+    ok.
+
+do_doc({File, dir, create, _Cookie, Name} = _Info) ->
+    FN = filename:join(File, Name),
+    erlinotify:watch(FN, fun do_doc/1);
+
+do_doc({File, dir, delete, _Cookie, Name} = _Info) ->
+    FN = filename:join(File, Name),
+    erlinotify:unwatch(FN);
+
+do_doc({File, file, close_write, _Cookie, Name} = _Info) ->
+    Ext = string:to_lower(filename:extension(Name)),
+    {ok, Exts} = application:get_env(ssync, extensions),
+    case lists:any(fun(X) -> X == Ext end, Exts) of
+        true ->
+            DepsDir = filename:join([".", ssync_rebar_config:get_deps_dir(".")]),
+            case lists:prefix(DepsDir, File) of
+                true  -> rebar(doc);
+                false -> rebar(doc, skip_deps)
+            end;
+        false ->
+            ok
+    end;
+
+do_doc({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.
 
 do_reload({File, dir, create, _Cookie, Name} = _Info) ->

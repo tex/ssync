@@ -54,8 +54,9 @@ parse_rebar_config(Root, _Table, {error, _}) ->
 
 root_dirs(Root) ->
     {ok, Dirs} = application:get_env(ssync, dirs),
-    [{filename:join([Root, Path]), CallbackName} ||
-        {Path, CallbackName} <- Dirs ].
+    [[{filename:join([Root, Path]), CallbackName} ||
+            CallbackName <- CallbackNames] ||
+        {Path, CallbackNames} <- Dirs ].
 
 get_deps_dir({ok, Terms}) ->
     proplists:get_value(deps_dir, Terms, ?DEFAULT_DEPS_DIR);

@@ -5,15 +5,20 @@
     {applications, [kernel, stdlib, erlinotify]},
     {registered, []},
     {env, [
-        {outputs, ['notify-send', console]},
-        {timeout, 2000},
-        {extensions, [".erl", ".hrl", ".c", ".cpp", ".cc", ".h", ".hpp", ".hh", ".src"]},
-        {dirs, [
-            {"", watch_rebar_config},
-            {"src", compile},
-            {"c_src", compile},
-            {"include", compile},
-            {"ebin", reload}
+        {outputs, [
+            'notify-send', console
+        ]},
+        {timeout, 2000},                        %% Timeout in miliseconds.
+        {extensions, [                          %% File extensions of files
+            ".erl", ".hrl", ".c", ".cpp",       %% whose modification triggers
+            ".cc", ".h", ".hpp", ".hh", ".src"  %% the compile and doc watches.
+        ]},
+        {dirs, [                                %% Known watches:
+            {"", [watch_rebar_config]},         %% watch_rebar_config,
+            {"src", [compile, doc]},            %% compile, doc, reload.
+            {"c_src", [compile]},
+            {"include", [compile]},
+            {"ebin", [reload]}
         ]}
     ]}
 ]}.
