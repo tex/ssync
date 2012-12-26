@@ -209,9 +209,6 @@ watch([F|R]) ->
 watch_recursive(Path, CallbackName) ->
     Callback = get_callback(CallbackName),
     Dirs = subdirs(Path) ++ [{dir, Path}],
-
-    io:format("~s: ~p~n", [Path, CallbackName]),
-
     [erlinotify:watch(X, Callback) ||
         {dir, X} <- lists:flatten(Dirs) ], ok.
 
