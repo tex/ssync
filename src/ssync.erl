@@ -267,7 +267,7 @@ do_compile({File, dir, delete, _Cookie, Name} = _Info) ->
 do_compile({File, file, close_write, _Cookie, Name} = _Info) ->
     Ext = string:to_lower(filename:extension(Name)),
     {ok, Exts} = application:get_env(ssync, extensions),
-    case lists:any(fun(X) -> X == Ext end, Exts) of
+    case lists:member(Ext, Exts) of
         true ->
             DepsDir = filename:join([".", ssync_rebar_config:get_deps_dir(".")]),
             case lists:prefix(DepsDir, File) of
@@ -292,7 +292,7 @@ do_doc({File, dir, delete, _Cookie, Name} = _Info) ->
 do_doc({File, file, close_write, _Cookie, Name} = _Info) ->
     Ext = string:to_lower(filename:extension(Name)),
     {ok, Exts} = application:get_env(ssync, extensions),
-    case lists:any(fun(X) -> X == Ext end, Exts) of
+    case lists:member(Ext, Exts) of
         true ->
             DepsDir = filename:join([".", ssync_rebar_config:get_deps_dir(".")]),
             case lists:prefix(DepsDir, File) of
