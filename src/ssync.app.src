@@ -14,7 +14,8 @@
             ".cc", ".h", ".hpp", ".hh", ".src"  %% the compile and doc watches.
         ]},
         {dirs, [                                %% Known watches:
-            {"", [watch_rebar_config]},         %% watch_rebar_config,
+            {"", [watch_rebar_config,           %% watch_rebar_config,
+                watch_new_dirs]},               %% watch_new_dirs,
             {"src", [compile, doc]},            %% compile, doc, reload.
             {"c_src", [compile]},
             {"include", [compile]},
