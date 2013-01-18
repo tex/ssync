@@ -80,36 +80,13 @@ reload(ModuleName) ->
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-%%----------------------------------------------------------------------
-%% Func: init/1
-%% Returns: {ok, State} |
-%%          {ok, State, Timeout} |
-%%          ignore |
-%%          {stop, Reason}
-%%----------------------------------------------------------------------
-
 init(_Args) ->
     watch(ssync_rebar_config:get_all_dirs(".")),
     {ok, []}.
 
-%%----------------------------------------------------------------------
-%% Func: handle_call/3
-%% Returns: {reply, Reply, State} |
-%%          {reply, Reply, State, Timeout} |
-%%          {noreply, State} |
-%%          {noreply, State, Timeout} |
-%%          {stop, Reason, Reply, State} | (terminate/2 is called)
-%%          {stop, Reason, State} (terminate/2 is called)
-%%----------------------------------------------------------------------
 handle_call(_Request, _From, State) ->
     {reply, ok, State, get_action_timeout()}.
 
-%%----------------------------------------------------------------------
-%% Func: handle_cast/2
-%% Returns: {noreply, State} |
-%%          {noreply, State, Timeout} |
-%%          {stop, Reason, State} (terminate/2 is called)
-%%----------------------------------------------------------------------
 handle_cast(stop, State) ->
     {stop, normal, State};
 
@@ -133,12 +110,6 @@ handle_cast(Msg, State) ->
   ?log({unknown_message, Msg}),
   {noreply, State, get_action_timeout()}.
 
-%%----------------------------------------------------------------------
-%% Func: handle_info/2
-%% Returns: {noreply, State} |
-%%          {noreply, State, Timeout} |
-%%          {stop, Reason, State} (terminate/2 is called)
-%%----------------------------------------------------------------------
 handle_info(timeout, ActionList) ->
     Actions = lists:usort(ActionList),
     lists:foreach(fun make_action/1, Actions),
@@ -148,11 +119,6 @@ handle_info(Info, State) ->
   ?log({unknown_message, Info}),
   {noreply, State, get_action_timeout()}.
 
-%%----------------------------------------------------------------------
-%% Func: terminate/2
-%% Purpose: Shutdown the server
-%% Returns: any (ignored by gen_server)
-%%----------------------------------------------------------------------
 terminate(_Reason, State) ->
     {close, State}.
 
@@ -209,8 +175,9 @@ watch([F|R]) ->
 watch_recursive(Path, CallbackName) ->
     Callback = get_callback(CallbackName),
     Dirs = subdirs(Path) ++ [{dir, Path}],
+    % files that will created later are handled with `do_watch_new_dirs`
     [erlinotify:watch(X, Callback) ||
-        {dir, X} <- lists:flatten(Dirs) ], ok.
+        {dir, X} <- lists:flatten(Dirs), filelib:is_file(X) == true ], ok.
 
 get_callback(reload) ->
     fun do_reload/1;
@@ -219,7 +186,9 @@ get_callback(compile) ->
 get_callback(doc) ->
     fun do_doc/1;
 get_callback(watch_rebar_config) ->
-    fun do_watch_rebar_config/1.
+    fun do_watch_rebar_config/1;
+get_callback(watch_new_dirs) ->
+    fun do_watch_new_dirs/1.
 
 subdirs(Path) ->
     [[{dir, Y} | subdirs(Y)] ||
@@ -330,6 +299,18 @@ do_watch_rebar_config({_File, file, close_write, _Cookie, "rebar.config"} = _Inf
     rebar('get-deps');
 
 do_watch_rebar_config({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
+    ok.
+
+do_watch_new_dirs({File, dir, move_to, Cookie, Name} = _Info) ->
+    do_watch_new_dirs({File, dir, create, Cookie, Name});
+
+do_watch_new_dirs({File, dir, create, _Cookie, Name} = _Info) ->
+    Dirs = lists:flatten(ssync_rebar_config:get_all_dirs(".")),
+    FN = filename:join(File, Name),
+    watch(proplists:lookup_all(FN, Dirs)),
+    rebar(compile);
+
+do_watch_new_dirs({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.
 
 get_action_timeout() ->
