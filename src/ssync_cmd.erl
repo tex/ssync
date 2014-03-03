@@ -36,8 +36,17 @@ cmd(Cmd, Args, Callback) ->
     end.
 
 cmd_sync(Cmd, Args, Callback) ->
-    P = open_port({spawn_executable, os:find_executable(Cmd)}, [
-                binary, use_stdio, stream, {line, 1024}, eof, {args, Args}]),
+    % Try to find the Cmd executable in the PATH
+    E = case os:find_executable(Cmd) of
+            false ->
+                % Cmd not in the PATH, try current working directory
+                {ok, CWD} = file:get_cwd(),
+                os:find_executable(filename:join(CWD, Cmd));
+            R -> R
+        end,
+
+    P = open_port({spawn_executable, E},
+                          [binary, use_stdio, stream, {line, 1024}, eof, {args, Args}]),
     cmd_receive(P, Callback, <<>>).
 
 cmd_receive(Port, Callback, Acc) ->
