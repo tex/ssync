@@ -307,8 +307,7 @@ do_watch_new_dirs({File, dir, move_to, Cookie, Name} = _Info) ->
 do_watch_new_dirs({File, dir, create, _Cookie, Name} = _Info) ->
     Dirs = lists:flatten(ssync_rebar_config:get_all_dirs(".")),
     FN = filename:join(File, Name),
-    watch(proplists:lookup_all(FN, Dirs)),
-    rebar(compile);
+    watch(proplists:lookup_all(FN, Dirs));
 
 do_watch_new_dirs({_File, _Type, _Event, _Cookie, _Name} = _Info) ->
     ok.
